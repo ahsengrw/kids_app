@@ -18,21 +18,37 @@ class PhonePad extends StatefulWidget {
   State<PhonePad> createState() => _PhonePadState();
 }
 
-class _PhonePadState extends State<PhonePad> {
+class _PhonePadState extends State<PhonePad> with SingleTickerProviderStateMixin {
   String _numberSequence = '';
 
 
 
   List<String> imagesList = [
-    'assets/animals_icons/Cat.png',
-    'assets/animals_icons/Cow.png',
-    'assets/animals_icons/Dog.png',
-    'assets/animals_icons/Duck.png',
-    'assets/animals_icons/Giraffe.png',
-    'assets/animals_icons/Hen.png',
-    'assets/animals_icons/Monkey.png',
-    'assets/animals_icons/Zebra.png',
-    'assets/animals_icons/Bird.png',
+    'assets/animals_talking/cat.gif',
+    'assets/animals_talking/bird.gif',
+    'assets/animals_talking/cow.gif',
+    'assets/animals_talking/dog.gif',
+    'assets/animals_talking/duck.gif',
+    'assets/animals_talking/giraffe.gif',
+    'assets/animals_talking/hen.gif',
+    'assets/animals_talking/monkey.gif',
+    'assets/animals_talking/zebra.gif',
+    'assets/animals_talking/elephant.gif',
+  ];
+
+  List<String> countingVoices = [
+    'assets/counting_voices/1.wav',
+    'assets/counting_voices/2.wav',
+    'assets/counting_voices/3.wav',
+    'assets/counting_voices/4.wav',
+    'assets/counting_voices/5.wav',
+    'assets/counting_voices/6.wav',
+    'assets/counting_voices/7.wav',
+    'assets/counting_voices/8.wav',
+    'assets/counting_voices/9.wav',
+    'assets/counting_voices/9.wav',
+    'assets/counting_voices/0.wav',
+    'assets/counting_voices/9.wav',
   ];
 
 
@@ -50,19 +66,46 @@ class _PhonePadState extends State<PhonePad> {
     }
   }
 
+
+  AnimationController? _animationController;
+  Animation<Offset>? _slideAnimation;
+
   bool dataLoading = true;
   @override
   void initState() {
+    super.initState();
+     audioModel = Provider.of<AudioModel>(context,listen: false);
+     if(audioModel!.isPlaying){
+       wasPlayed = true;
+     }else{
+       wasPlayed = false;
+     }
+    _animationController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 1),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: Offset(0.0, 1.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController!,
+      curve: Curves.fastEaseInToSlowEaseOut,
+    ));
+    _animationController!.forward();
     precacheAudioAssets('assets/dial.mp3');
     precacheAudioAssetsList(music);
-    // TODO: implement initState
-    super.initState();
   }
 
   List<String> music = [
     'assets/dance.mp3','assets/music2.mp3','assets/music1.mp3',
 
   ];
+
+  @override
+  void dispose() {
+    super.dispose();
+    _animationController!.dispose();
+  }
 
 
   final assetAudioPlayer = AssetsAudioPlayer();
@@ -79,7 +122,7 @@ class _PhonePadState extends State<PhonePad> {
   int? _newLetterIndex;
 
 
-  void _onButtonPress(String label) {
+  void _onButtonPress(String label,int index) {
     setState(() {
       if (label == 'backspace') {
         _numberSequence = _numberSequence.substring(0, _numberSequence.length - 1);
@@ -89,15 +132,31 @@ class _PhonePadState extends State<PhonePad> {
         _numberSequence += label;
         // Set the index of the newly added letter
         _newLetterIndex = _numberSequence.length - 1;
+
+        if(index != 9 && index != 11){
+          setState(() {
+            selectedVoice = countingVoices[index];
+          });
+          AssetsAudioPlayer.newPlayer().open(
+            Audio(selectedVoice!),
+          );
+        }
       }
     });
   }
+
+  String? selectedVoice;
+  AudioModel? audioModel ;
 
 
 
   @override
   Widget build(BuildContext context) {
-    final audioModel = Provider.of<AudioModel>(context);
+
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final screenWidth = mediaQuery.size.width;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -112,7 +171,7 @@ class _PhonePadState extends State<PhonePad> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Container(
-              height: 80,
+              height: screenHeight * 0.15,
               width: double.infinity,
               margin: EdgeInsets.symmetric(horizontal: 21, vertical: 21),
               decoration: BoxDecoration(
@@ -136,6 +195,7 @@ class _PhonePadState extends State<PhonePad> {
                       );
                     },
                     child: RichText(
+                      maxLines: 1,
                       key: ValueKey<String>(_numberSequence),
                       text: TextSpan(
                         style: customStyle.copyWith(
@@ -146,6 +206,7 @@ class _PhonePadState extends State<PhonePad> {
                         children: List.generate(_numberSequence.length, (index) {
                           final letter = _numberSequence[index];
                           final isAnimated = index == _numberSequence.length - 1;
+
 
                           return TextSpan(
                             text: letter,
@@ -162,98 +223,107 @@ class _PhonePadState extends State<PhonePad> {
 
               ),
             ),
-            Wrap(
-
-              alignment: WrapAlignment.center,
-              spacing: MediaQuery.of(context).size.width * 0.1,
-              runSpacing: 7,
-              crossAxisAlignment: WrapCrossAlignment.center,
-
-              children: List.generate(12, (index) {
-                String label;
-                double containerWidth;
-                double containerHeight;
-                switch (index) {
-                  case 9:
-                    label = '*';
-                    containerWidth = MediaQuery.of(context).size.height * 0.09;
-                    containerHeight = MediaQuery.of(context).size.height * 0.09;
-                    break;
-                  case 10:
-                    label = '0';
-                    containerWidth = MediaQuery.of(context).size.height * 0.11;
-                    containerHeight = MediaQuery.of(context).size.height * 0.11;
-                    break;
-                  case 11:
-                    label = '#';
-                    containerWidth = MediaQuery.of(context).size.height * 0.09;
-                    containerHeight = MediaQuery.of(context).size.height * 0.09;
-                    break;
-                  default:
-                    label = (index + 1).toString();
-                    containerWidth = MediaQuery.of(context).size.height * 0.11;
-                    containerHeight = MediaQuery.of(context).size.height * 0.11;
-                }
-                return Bounce(
-                  duration: Duration(milliseconds: 100),
-                  onTap: () {
-                    _onButtonPress(label);
-                  },
-                  child: index == 9 || index == 11
-                      ? Container(
-                    width: containerWidth,
-                    height: containerHeight,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          spreadRadius: 3,
-                          blurRadius: 15,
-                          offset: Offset(0, 3),
+            AnimatedBuilder(
+              animation: _animationController!,
+              builder: (BuildContext context, Widget? child) {
+                return  SlideTransition(
+                  position: _slideAnimation!,
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: screenWidth * 0.13,
+                    runSpacing: 7,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: List.generate(12, (index) {
+                      String label;
+                      double containerWidth;
+                      double containerHeight;
+                      switch (index) {
+                        case 9:
+                          label = '*';
+                          containerWidth = MediaQuery.of(context).size.height * 0.08;
+                          containerHeight = MediaQuery.of(context).size.height * 0.08;
+                          break;
+                        case 10:
+                          label = '0';
+                          containerWidth = MediaQuery.of(context).size.height * 0.10;
+                          containerHeight = MediaQuery.of(context).size.height * 0.10;
+                          break;
+                        case 11:
+                          label = '#';
+                          containerWidth = MediaQuery.of(context).size.height * 0.08;
+                          containerHeight = MediaQuery.of(context).size.height * 0.08;
+                          break;
+                        default:
+                          label = (index + 1).toString();
+                          containerWidth = MediaQuery.of(context).size.height * 0.10;
+                          containerHeight = MediaQuery.of(context).size.height * 0.10;
+                      }
+                      return Bounce(
+                        duration: Duration(milliseconds: 400),
+                        onTap: () {
+                          _onButtonPress(label,index);
+                        },
+                        child: index == 9 || index == 11
+                            ? Container(
+                          width: containerWidth,
+                          height: containerHeight,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                spreadRadius: 3,
+                                blurRadius: 15,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              index == 9 ? '*' : '#',
+                              style: customStyle.copyWith(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 40,
+                                color: redishOrange,
+                              ),
+                            ),
+                          ),
+                        )
+                            : Container(
+                          width: containerWidth,
+                          height: containerHeight,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                spreadRadius: 3,
+                                blurRadius: 15,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: AnimatedDefaultTextStyle(
+                              style: customStyle.copyWith(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 50,
+                                color: redishOrange,
+                              ),
+                              duration: Duration(milliseconds: 300),
+                              child: Text(
+                                label,
+                              ),
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        index == 9 ? '*' : '#',
-                        style: customStyle.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 40,
-                          color: redishOrange,
-                        ),
-                      ),
-                    ),
-                  )
-                      : Container(
-                    width: containerWidth,
-                    height: containerHeight,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          spreadRadius: 3,
-                          blurRadius: 15,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        label,
-                        style: customStyle.copyWith(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 50,
-                          color: redishOrange,
-                        ),
-                      ),
-                    ),
+                      );
+                    }),
                   ),
                 );
-              }),
+              },
             ),
             SizedBox(
               height: 21,
@@ -269,28 +339,39 @@ class _PhonePadState extends State<PhonePad> {
                   // ),
                   CallButton(
                     onTap: () async {
-                      audioModel.stopAudio();
+                      wasPlayed = audioModel!.isPlaying;
+                      audioModel!.stopAudio();
                       final random = Random();
                     String  selectedAsset = imagesList[random.nextInt(imagesList.length)];
                       final List<Color> colors = [color1,color2,color3,color4,color5,];
                       final randomColor = colors[random.nextInt(colors.length)];
-                      final randomMusic = music[random.nextInt(music.length)];
-
-
+                      // final randomMusic = music[random.nextInt(music.length)];
                       playSound('assets/dial.mp3');
                       setState(() {
                         _numberSequence = '';
                       });
                       showDialog(
+                        barrierDismissible: false,
                           context: context,
                           builder: (context) {
-                            return CallDialog(
-                              popCall: (){
-                               stopSound();
-                                Navigator.pop(context);
+                            return WillPopScope(
+                              onWillPop: () async {
+                                // Handle back button press
+                                // Return true to prevent the dialog from being dismissed
+                                // Return false to allow the dialog to be dismissed
+                                return false;
                               },
-                              bgColor: randomColor,
-                              assets:selectedAsset ,
+                              child: CallDialog(
+                                popCall: (){
+                                 stopSound();
+                                  Navigator.pop(context);
+                                  if (wasPlayed) {
+                                    audioModel!.playAudio();
+                                  }
+                                },
+                                bgColor: randomColor,
+                                assets:selectedAsset ,
+                              ),
                             );
                           });
                     },
@@ -314,6 +395,8 @@ class _PhonePadState extends State<PhonePad> {
       ),
     );
   }
+
+  bool wasPlayed = true;
 }
 
 

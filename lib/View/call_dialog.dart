@@ -40,9 +40,11 @@ class _CallDialogState extends State<CallDialog> {
             child: Center(
               child: Image.asset(
                 widget.assets,
-                width: MediaQuery.of(context).size.width * 0.5,
-                height: MediaQuery.of(context).size.width * 0.5,
+                // width: MediaQuery.of(context).size.width * 0.5,
+                // height: MediaQuery.of(context).size.width * 0.5,
+                fit: BoxFit.cover,
               ),
+
             ),
           ),
           SizedBox(

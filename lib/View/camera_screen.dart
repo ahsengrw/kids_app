@@ -2,18 +2,18 @@ import 'dart:async';
 import 'dart:io';
 import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:bounce_button/bounce_button.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:gif/gif.dart';
 import 'package:kids_app/SharedContent/constants.dart';
-import 'package:kids_app/State%20Management/play_stop_bg_music.dart';
-import 'package:kids_app/extra.dart';
+import 'package:kids_app/State%20Management/camera_provider.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+
+import '../State Management/play_stop_bg_music.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({Key? key}) : super(key: key);
@@ -24,22 +24,57 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen>
     with TickerProviderStateMixin {
-  late CameraController cameraController;
+  void _requestCameraPermission() async {
+    PermissionStatus cameraStatus = await Permission.camera.request();
+    PermissionStatus microphoneStatus = await Permission.microphone.request();
 
-  Future<void> initCamera() async {
-    final cameras = await availableCameras();
-    final frontCamera = cameras.firstWhere(
-      (camera) => camera.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
-    cameraController = CameraController(
-      frontCamera,
-      ResolutionPreset.high,
-    );
-    await cameraController.initialize();
-    setState(() {
-      cameraLoading = false;
-    });
+    if (cameraStatus.isGranted && microphoneStatus.isGranted) {
+      print('permission is granted ........... ${microphoneStatus}');
+      print('permission is granted ........... ${cameraStatus}');
+      // Permissions granted for both camera and microphone
+      // Do something, like opening the camera
+    } else if (cameraStatus.isDenied || microphoneStatus.isDenied) {
+      print('permission is denied ........... ${microphoneStatus}');
+      print('permission is denied ........... ${cameraStatus}');
+      // Permission denied for either camera or microphone
+      // Show a dialog to the user explaining why you need the permission
+      showDialog(
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+          title: Text('Permissions Required'),
+          content: Text(
+              'Please grant camera and microphone permissions to proceed.'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text('Open Settings'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                openAppSettings();
+              },
+            ),
+          ],
+        ),
+      );
+    } else if (cameraStatus.isPermanentlyDenied ||
+        microphoneStatus.isPermanentlyDenied) {
+      // Permissions permanently denied for either camera or microphone
+      // Show an alert dialog or navigate to the app settings
+      // openAppSettings();
+    }
+
+    if (cameraStatus.isGranted && microphoneStatus.isGranted) {
+      // Permissions granted for both camera and microphone
+      // Do additional logic here if needed
+      // For example, you can start the camera initialization process
+      final cameraProvider =
+          Provider.of<CameraProvider>(context, listen: false);
+      await cameraProvider.initCamera();
+      await initRecorder();
+    }
   }
 
   bool _assetsLoaded = true;
@@ -55,6 +90,9 @@ class _CameraScreenState extends State<CameraScreen>
     'assets/animals_hearing/hen.gif',
     'assets/animals_hearing/monkey.gif',
     'assets/animals_hearing/zebra.gif',
+    '',
+    'assets/animals_hearing/elephant.gif',
+    '',
   ];
 
   List<String> bgs = [
@@ -67,6 +105,9 @@ class _CameraScreenState extends State<CameraScreen>
     'assets/Background Images/7.png',
     'assets/Background Images/8.png',
     'assets/Background Images/9.png',
+    'assets/Background Images/5.png',
+    'assets/Background Images/5.png',
+    'assets/Background Images/5.png',
   ];
 
   List<String> gifAssetsTalking = [
@@ -79,6 +120,9 @@ class _CameraScreenState extends State<CameraScreen>
     'assets/animals_talking/hen.gif',
     'assets/animals_talking/monkey.gif',
     'assets/animals_talking/zebra.gif',
+    '',
+    'assets/animals_talking/elephant.gif',
+    '',
   ];
 
   List<String> dancingGifs = [
@@ -91,9 +135,15 @@ class _CameraScreenState extends State<CameraScreen>
     'assets/Animals Dances/hen.gif',
     'assets/Animals Dances/monkey.gif',
     'assets/Animals Dances/zebra.gif',
+    '',
+    'assets/Animals Dances/elephant.gif',
+    '',
   ];
 
   List<String> animalsVoices = [
+    "assets/dance.mp3",
+    "assets/dance.mp3",
+    "assets/dance.mp3",
     "assets/dance.mp3",
     "assets/dance.mp3",
     "assets/dance.mp3",
@@ -115,6 +165,9 @@ class _CameraScreenState extends State<CameraScreen>
     'assets/animals_icons/Hen.png',
     'assets/animals_icons/Monkey.png',
     'assets/animals_icons/Zebra.png',
+    '',
+    'assets/animals_icons/Elephant.png',
+    '',
   ];
 
   String? selectedAsset;
@@ -129,21 +182,57 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  // late final GifController controller1;
+
+  AnimationController? _animationController;
+  Animation<Offset>? _slideAnimation;
+
   @override
   void initState() {
-    Provider.of<AudioModel>(context, listen: false).stopAudio();
-    precacheAudioAssets(imagesList);
-    precacheAudioAssets(animalsVoices);
-    precacheAudioAssets(dancingGifs);
-    precacheAudioAssets(gifAssetsTalking);
-    precacheAudioAssets(bgs);
-    precacheAudioAssets(gifAssetsHearing);
-    initCamera();
-    initRecorder();
-    setState(() {
-      _assetsLoaded = false;
-    });
+    initializeScreen();
+    audioModel = Provider.of<AudioModel>(context, listen: false);
+    isMusicOn = audioModel!.isPlaying;
+    audioModel!.stopAudio();
     super.initState();
+  }
+
+  AudioModel? audioModel;
+
+  bool isMusicOn = true;
+
+  initializeScreen() async {
+    try {
+      _requestCameraPermission();
+      // // controller1 = GifController(vsync: this);
+      precacheAudioAssets(imagesList);
+      precacheAudioAssets(animalsVoices);
+      precacheAudioAssets(dancingGifs);
+      precacheAudioAssets(gifAssetsTalking);
+      precacheAudioAssets(bgs);
+      precacheAudioAssets(gifAssetsHearing);
+      initRecorder();
+      _animationController = AnimationController(
+        vsync: this,
+        duration: Duration(seconds: 1),
+      );
+      _slideAnimation = Tween<Offset>(
+        begin: Offset(0.0, 1.0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _animationController!,
+        curve: Curves.fastEaseInToSlowEaseOut,
+      ));
+      _animationController!.forward();
+      setState(() {
+        _assetsLoaded = false;
+      });
+    } on Exception catch (e) {
+      print('************************$e');
+      // TODO
+      setState(() {
+        _assetsLoaded = false;
+      });
+    }
   }
 
   Timer? activeTimer;
@@ -153,9 +242,17 @@ class _CameraScreenState extends State<CameraScreen>
 
   @override
   void dispose() {
+    if (isMusicOn) {
+      audioModel!.playAudio();
+    }
     stopSound();
-    cameraController.dispose();
+    stopSoundN();
+    // controller1.dispose();
+
+    // cameraController.dispose();
     recorder.closeAudioSession();
+    assetAudioPlayerN.stop();
+    _animationController!.dispose();
     super.dispose();
   }
 
@@ -170,10 +267,10 @@ class _CameraScreenState extends State<CameraScreen>
   int? selectedIndex;
 
   Future initRecorder() async {
-    final status = await Permission.microphone.request();
-    if (status != PermissionStatus.granted) {
-      showToast(context, 'Permission not granted');
-    }
+    // final status = await Permission.microphone.request();
+    // if (status != PermissionStatus.granted) {
+    //   showToast(context, 'Permission not granted');
+    // }
 
     await recorder.openAudioSession();
 
@@ -208,6 +305,7 @@ class _CameraScreenState extends State<CameraScreen>
     // if (!whileTrue) return;
     print('recording stopped...................');
     if (!isRecorderReady) return;
+    pathToAudio = null;
     final path = await recorder.stopRecorder();
     File audioPath = File(path!);
     pathToAudio = audioPath;
@@ -218,22 +316,79 @@ class _CameraScreenState extends State<CameraScreen>
 
   String? selectedVoice;
 
-  final assetAudioPlayer = AssetsAudioPlayer();
+  final assetAudioPlayerN = AssetsAudioPlayer();
 
   void playSound(String path) {
     print('sound played of asset...................');
-    assetAudioPlayer.open(Audio(path));
+    assetAudioPlayerN.open(Audio(path));
   }
 
-  void playSoundFile(String path) {
+  Future<String> getLocalFilePath(String filename) async {
+    final directory = await getApplicationDocumentsDirectory();
+    return '${directory.path}/$filename';
+  }
+
+  // void playSoundFile(String path) {
+  //   if (!whileTrue) return;
+  //   print('sound played of recording...................');
+  //   try {
+  //     assetAudioPlayerN.open(Audio.file(path));
+  //   } on Exception catch (e) {
+  //     // TODO
+  //     print('Error $e');
+  //     print('*************************************************************');
+  //   }
+  // }
+
+  void playSoundFile(String path) async {
     if (!whileTrue) return;
     print('sound played of recording...................');
-    assetAudioPlayer.open(Audio.file(path));
+    try {
+      String localPath = await getLocalFilePath('audio.mp3');
+      await File(path).copy(localPath);
+      assetAudioPlayerN.open(
+        Audio.file(localPath),
+        autoStart: true, // Ensure the audio starts playing immediately
+        showNotification: false, // Hide the notification
+      );
+    } catch (e) {
+      // Handle the error
+      print('Error: $e');
+      print('*************************************************************');
+    }
+  }
+
+  final audioPlayer = FlutterSoundPlayer();
+
+  void playSoundFileN(String path) async {
+    if (!whileTrue) return;
+    print('sound played of recording...................');
+    try {
+      // Open the audio file using flutter_sound
+      await audioPlayer.openAudioSession();
+      await audioPlayer.startPlayer(
+        fromURI: path,
+        codec: Codec.mp3,
+        whenFinished: () {
+          // Playback finished
+        },
+      );
+    } catch (e) {
+      // Handle the error
+      print('Error: $e');
+      print('*************************************************************');
+    }
+  }
+
+  void stopSoundN() {
+    print('sound stopped...................');
+    audioPlayer.stopPlayer();
+    audioPlayer.closeAudioSession();
   }
 
   void stopSound() {
     print('sound stopped...................');
-    assetAudioPlayer.stop();
+    assetAudioPlayerN.stop();
   }
 
   final spinkit = SpinKitFadingCircle(
@@ -248,20 +403,23 @@ class _CameraScreenState extends State<CameraScreen>
 
   bool whileTrue = true;
   bool isSessionCleared = true;
-
+  bool dancing = false;
   Timer? recordingTimer;
 
   int enabledIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final deviceRatio = size.width / size.height;
+    final cameraProvider = Provider.of<CameraProvider>(context);
     return _assetsLoaded
         ? Scaffold(
             body: Center(
               child: spinkit,
             ),
           )
-        : cameraLoading
+        : !cameraProvider.isCameraInitialized
             ? Scaffold(
                 body: Center(
                   child: spinkit,
@@ -286,14 +444,15 @@ class _CameraScreenState extends State<CameraScreen>
                       Expanded(
                         flex: 6,
                         child: isExpanded
-                            ? Container(
-                                width: double.infinity,
-                                child: AspectRatio(
-                                  aspectRatio:
-                                      cameraController.value.aspectRatio,
-                                  child: CameraPreview(cameraController),
-                                ),
-                              )
+                            ? FittedBox(
+                          fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: size.width,
+                                height: size.width / deviceRatio,
+                                child: CameraPreview(
+                                    cameraProvider.cameraController!),
+                              ),
+                            )
                             : Container(
                                 decoration: BoxDecoration(
                                     image: DecorationImage(
@@ -310,36 +469,37 @@ class _CameraScreenState extends State<CameraScreen>
                                               height: MediaQuery.of(context)
                                                       .size
                                                       .height *
-                                                  0.3,
+                                                  0.4,
                                               width: MediaQuery.of(context)
                                                       .size
                                                       .width *
-                                                  0.3,
+                                                  0.4,
+                                              gaplessPlayback: true,
                                             ),
-                                      bottom: 0,
+                                      bottom: -30,
                                       left: 0,
                                       right: 0,
                                     ),
                                     Positioned(
-                                      child:
-                                          // selectedIndex == null
-                                          //     ? SizedBox()
-                                          //     :
-
-                                          InkWell(
+                                      child: InkWell(
                                         onTap: () async {
+                                          await stop();
+                                          stopSound();
+                                          stopSoundN();
                                           if (recordingTimer != null) {
                                             recordingTimer!.cancel();
-                                            print('recorder timer $recordingTimer');
+                                            print(
+                                                'recorder timer $recordingTimer');
                                           }
                                           setState(() {
+                                            dancing = true;
+                                            isSessionCleared = true;
                                             selectedAsset =
                                                 dancingGifs[selectedIndex!];
                                             selectedVoice =
                                                 animalsVoices[selectedIndex!];
                                           });
-                                          stopSound();
-                                          await stop();
+
                                           playSound(selectedVoice!);
                                         },
                                         child: selectedAsset == null
@@ -383,12 +543,16 @@ class _CameraScreenState extends State<CameraScreen>
                                         height:
                                             MediaQuery.of(context).size.width *
                                                 0.35,
-                                        child: AspectRatio(
-                                          aspectRatio: cameraController
-                                              .value.aspectRatio,
-                                          child:
-                                              CameraPreview(cameraController),
-                                        ),
+                                        child:
+                                            cameraProvider.cameraController !=
+                                                        null &&
+                                                    cameraProvider
+                                                        .cameraController!
+                                                        .value
+                                                        .isInitialized
+                                                ? CameraPreview(cameraProvider
+                                                    .cameraController!)
+                                                : Container(),
                                       ),
                                       top: 0,
                                       right: 0,
@@ -400,134 +564,162 @@ class _CameraScreenState extends State<CameraScreen>
                       Expanded(
                         flex: 6,
                         child: Stack(children: [
-                          Padding(
-                            padding: const EdgeInsets.all(21),
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 18.0),
-                              child: GridView.builder(
-                                itemCount: imagesList.length,
-                                shrinkWrap: true,
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  mainAxisExtent:
-                                      MediaQuery.of(context).size.height * 0.1,
-                                  mainAxisSpacing: 7,
-                                  // crossAxisSpacing: 12,
-                                ),
-                                itemBuilder: (BuildContext context, int index) {
-                                  // Create the button widget
-                                  return Bounce(
-                                    // Updated onTap function
-                                    onTap: () async {
-                                      if (_buttonEnabled) {
+                          AnimatedBuilder(
+                            animation: _animationController!,
+                            builder: (BuildContext context, Widget? child) {
+                              return SlideTransition(
+                                position: _slideAnimation!,
+                                child: GridView.builder(
+                                  padding: EdgeInsets.only(
+                                      top: MediaQuery.sizeOf(context).height *
+                                          0.05),
+                                  itemCount: imagesList.length,
+                                  shrinkWrap: true,
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    mainAxisExtent:
+                                        MediaQuery.of(context).size.height *
+                                            0.09,
+                                    mainAxisSpacing: 7,
+                                    // crossAxisSpacing: 12,
+                                  ),
+                                  itemBuilder:
+                                      (BuildContext context, int index) {
+                                    // Create the button widget
+                                    return index == 9 || index == 11
+                                        ? SizedBox()
+                                        : Bounce(
+                                            // Updated onTap function
+                                            onTap: () async {
+                                              if (!isExpanded) {
+                                                if (_buttonEnabled) {
+                                                  if (recordingTimer != null) {
+                                                    recordingTimer!.cancel();
+                                                    print(
+                                                        'recorder timer $recordingTimer');
+                                                  }
 
-                                        if (recordingTimer != null) {
-                                          recordingTimer!.cancel();
-                                          print('recorder timer $recordingTimer');
-                                        }
+                                                  setState(() {
+                                                    _buttonEnabled = false;
+                                                    // whileTrue = true;
+                                                    dancing = false;
+                                                    selectedAsset =
+                                                        gifAssetsHearing[index];
+                                                    backgroundAsset =
+                                                        bgs[index];
+                                                    selectedIndex = index;
+                                                  });
+                                                  await stop();
+                                                  stopSound();
+                                                  stopSoundN();
+                                                  recordingTimer =
+                                                      Timer.periodic(
+                                                          Duration(
+                                                              milliseconds:
+                                                                  250),
+                                                          (timer) async {
+                                                    if (isSessionCleared ==
+                                                        true) {
+                                                      isSessionCleared = false;
+                                                      // await stop();
+                                                      // stopSound();
+                                                      setState(() {
+                                                        _buttonEnabled = true;
+                                                        selectedAsset =
+                                                            gifAssetsHearing[
+                                                                selectedIndex!];
+                                                      });
+                                                      await record();
+                                                      await Future.delayed(
+                                                          Duration(seconds: 5));
+                                                      await stop();
+                                                      setState(() {
+                                                        selectedAsset = dancing ==
+                                                                false
+                                                            ? gifAssetsTalking[
+                                                                selectedIndex!]
+                                                            : dancingGifs[
+                                                                selectedIndex!];
+                                                      });
+                                                      dancing == false
+                                                          ? playSoundFileN(
+                                                              pathToAudio!.path)
+                                                          : null;
+                                                      await Future.delayed(
+                                                          Duration(seconds: 5));
+                                                      isSessionCleared = true;
+                                                    }
+                                                  });
+                                                  enabledIndex = index;
+                                                  print(
+                                                      'enable index $enabledIndex');
+                                                } else {
+                                                  // showToast(context, 'button disabled');
+                                                }
+                                              } else {}
+                                            },
 
-                                        setState(() {
-                                          _buttonEnabled = false;
-                                          // whileTrue = true;
-                                          selectedAsset =
-                                              gifAssetsHearing[index];
-                                          backgroundAsset = bgs[index];
-                                          selectedIndex = index;
-                                        });
-                                        await stop();
-                                        stopSound();
-                                        recordingTimer = Timer.periodic(
-                                            Duration(milliseconds: 250),
-                                            (timer) async {
-                                          if (isSessionCleared == true) {
-                                            isSessionCleared = false;
-                                            // await stop();
-                                            // stopSound();
-                                            setState(() {
-                                              selectedAsset = gifAssetsHearing[
-                                                  selectedIndex!];
-                                            });
-                                            await record();
-                                            await Future.delayed(
-                                                Duration(seconds: 5));
-                                            await stop();
-                                            setState(() {
-                                              _buttonEnabled = true;
-                                              selectedAsset = gifAssetsTalking[
-                                                  selectedIndex!];
-                                            });
-                                            playSoundFile(pathToAudio!.path);
-                                            await Future.delayed(
-                                                Duration(seconds: 5));
-                                            isSessionCleared = true;
-                                          }
-                                        });
-                                        // while (whileTrue) {
-                                        //   if(enabledIndex != index){
-                                        //     break;
-                                        //   }
-                                        //   await stop();
-                                        //   stopSound();
-                                        //   setState(() {
-                                        //     selectedAsset = gifAssetsHearing[
-                                        //     selectedIndex!];
-                                        //   });
-                                        //   await record();
-                                        //   await Future.delayed(
-                                        //       Duration(seconds: 5));
-                                        //   await stop();
-                                        //   setState(() {
-                                        //     _buttonEnabled = true;
-                                        //     selectedAsset = gifAssetsTalking[
-                                        //     selectedIndex!];
-                                        //   });
-                                        //   playSoundFile(pathToAudio!.path);
-                                        //   await   Future.delayed(Duration(seconds: 5));
-                                        // }
-                                        enabledIndex = index;
-                                        print('enable index $enabledIndex');
-                                      } else {
-                                        showToast(context, 'button disabled');
-                                      }
-                                    },
-
-                                    duration: Duration(milliseconds: 300),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black26,
-                                              spreadRadius: 3,
-                                              blurRadius: 15,
-                                              offset: Offset(0, 3),
+                                            duration:
+                                                Duration(milliseconds: 300),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  shape: BoxShape.circle,
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black26,
+                                                      spreadRadius: 3,
+                                                      blurRadius: 15,
+                                                      offset: Offset(0, 3),
+                                                    ),
+                                                  ]),
+                                              child: Center(
+                                                child: Image.asset(
+                                                  imagesList[index],
+                                                  width: index == 10
+                                                      ? MediaQuery.of(context)
+                                                              .size
+                                                              .width *
+                                                          0.12
+                                                      : MediaQuery.of(context)
+                                                              .size
+                                                              .width *
+                                                          0.14,
+                                                  height: index == 10
+                                                      ? MediaQuery.of(context)
+                                                              .size
+                                                              .width *
+                                                          0.12
+                                                      : MediaQuery.of(context)
+                                                              .size
+                                                              .width *
+                                                          0.14,
+                                                ),
+                                              ),
                                             ),
-                                          ]),
-                                      child: Center(
-                                        child: Image.asset(
-                                          imagesList[index],
-                                          width: 40,
-                                          height: 40,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
+                                          );
+                                  },
+                                ),
+                              );
+                            },
                           ),
                           Positioned(
                             top: 0,
                             right: 0,
                             child: InkWell(
                               onTap: () {
+                                if (recordingTimer != null) {
+                                  recordingTimer!.cancel();
+                                  print('recorder timer $recordingTimer');
+                                }
                                 setState(() {
+                                  selectedAsset = null;
                                   isExpanded = !isExpanded;
-                                  stop();
-                                  stopSound();
                                 });
+                                stop();
+                                stopSound();
+                                stopSoundN();
                               },
                               child: Container(
                                 decoration: BoxDecoration(

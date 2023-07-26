@@ -2,16 +2,15 @@ import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:kids_app/SharedContent/constants.dart';
-import 'package:kids_app/SharedContent/password_dialog.dart';
-import 'package:kids_app/View/about_us.dart';
+import 'package:kids_app/View/camera_new.dart';
 import 'package:kids_app/View/phone_pad.dart';
 import 'package:kids_app/View/settings_screen.dart';
 import 'package:kids_app/View/counting.dart';
 import 'package:kids_app/View/animal.dart';
-import 'package:kids_app/View/camera_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../State Management/play_stop_bg_music.dart';
+import 'camera_screen.dart';
 
 class BottomNavBar extends StatefulWidget {
   @override
@@ -25,7 +24,8 @@ class _BottomNavBarState extends State<BottomNavBar> {
     PhonePad(),
     Counting(),
     Animals(),
-    CameraScreen(),
+    OpenCamera(),
+    // CameraScreen(),
   ];
 
   final List _imageOptions = [
@@ -41,12 +41,6 @@ class _BottomNavBarState extends State<BottomNavBar> {
     );
   }
 
-  @override
-  void initState() {
-    // playMusic();
-    // TODO: implement initState
-    super.initState();
-  }
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -110,17 +104,19 @@ class _BottomNavBarState extends State<BottomNavBar> {
             padding: const EdgeInsets.all(4.0),
             child: InkWell(
               onTap: () {
+                _scaffoldKey.currentState!.openDrawer();
+
                 print('working');
-                showDialog(
-                    context: context,
-                    builder: (context) {
-                      return PasscodeDialog(
-                        onEnter: () {
-                          Navigator.pop(context);
-                          _scaffoldKey.currentState!.openDrawer();
-                        },
-                      );
-                    });
+                // showDialog(
+                //     context: context,
+                //     builder: (context) {
+                //       return PasscodeDialog(
+                //         onEnter: () {
+                //           Navigator.pop(context);
+                //           _scaffoldKey.currentState!.openDrawer();
+                //         },
+                //       );
+                //     });
               },
               child: Image.asset(
                 'assets/drawer.png',

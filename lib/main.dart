@@ -1,19 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kids_app/SharedContent/constants.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
+import 'State Management/camera_provider.dart';
 import 'State Management/play_stop_bg_music.dart';
 import 'View/splash_screen.dart';
 
-void main() {
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
     statusBarColor: customYellow,
   ));
+
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => AudioModel(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<CameraProvider>(
+          create: (_) => CameraProvider(),
+        ),
+        ChangeNotifierProvider<AudioModel>(
+          create: (_) => AudioModel(),
+        ),
+      ],
       child: MyApp(),
     ),
   );

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.3
 
 environment:
   sdk: '>=2.19.2 <3.0.0'
@@ -47,12 +47,24 @@ dependencies:
   extended_image: ^8.0.1
   flutter_cache_manager: ^3.3.0
   curved_navigation_bar: ^1.0.3
-  dio: ^5.1.2
+  audioplayers: ^4.1.0
   animated_text_kit: ^4.2.2
+  lottie: ^2.4.0
+  path_provider: ^2.0.15
+
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.12.0
+
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/aie.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -66,6 +78,10 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  fonts:
+    - family: Pacifico
+      fonts:
+        - asset: assets/pacifico.ttf
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -78,11 +94,39 @@ flutter:
     - assets/animals_icons/
     - assets/animals_hearing/
     - assets/animals_talking/
-    - assets/counting voices/
-    - assets/Animals Voices/
-    - assets/counting voices/
+    - assets/counting_voices/1.wav
+    - assets/counting_voices/2.wav
+    - assets/counting_voices/3.wav
+    - assets/counting_voices/4.wav
+    - assets/counting_voices/5.wav
+    - assets/counting_voices/6.wav
+    - assets/counting_voices/7.wav
+    - assets/counting_voices/8.wav
+    - assets/counting_voices/9.wav
+    - assets/counting_voices/0.wav
+    - assets/Animals_Voices/bird.wav
+    - assets/Animals_Voices/cat.wav
+    - assets/Animals_Voices/cow.wav
+    - assets/Animals_Voices/dog.wav
+    - assets/Animals_Voices/duck.wav
+    - assets/Animals_Voices/elephant.wav
+    - assets/Animals_Voices/giraffe.wav
+    - assets/Animals_Voices/hen.wav
+    - assets/Animals_Voices/monkey.wav
+    - assets/Animals_Voices/zebra.wav
+    - assets/Animals_Names/bird.mp3
+    - assets/Animals_Names/cat.wav
+    - assets/Animals_Names/cow.mp3
+    - assets/Animals_Names/dog.wav
+    - assets/Animals_Names/duck.mp3
+    - assets/Animals_Names/elephant.mp3
+    - assets/Animals_Names/giraffe.mp3
+    - assets/Animals_Names/hen.mp3
+    - assets/Animals_Names/monkey.mp3
+    - assets/Animals_Names/zebra.mp3
     - assets/Background Images/
     - assets/Animals Dances/
+    - assets/animals_waving/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
